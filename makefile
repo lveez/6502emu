@@ -1,0 +1,1 @@
+SRCFILES := $(wildcard src/*.c)
