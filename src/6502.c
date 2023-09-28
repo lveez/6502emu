@@ -318,8 +318,7 @@ void ExecuteROR(CPU* cpu, uint16_t address, Instruction* instruction) {
 }
 
 void ExecuteAND(CPU* cpu, uint16_t address) {
-    cpu->registers.accumulator =
-        cpu->registers.accumulator & cpu->memory[address];
+    cpu->registers.accumulator = cpu->registers.accumulator & cpu->memory[address];
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
@@ -327,33 +326,75 @@ void ExecuteAND(CPU* cpu, uint16_t address) {
 void ExecuteBIT(CPU* cpu, uint16_t address) {
     cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
     cpu->registers.status.overflow = (cpu->memory[address] >> 6) & 1;
-    cpu->registers.status.zero =
-        !(cpu->registers.accumulator & cpu->memory[address]);
+    cpu->registers.status.zero = !(cpu->registers.accumulator & cpu->memory[address]);
 }
 
 void ExecuteEOR(CPU* cpu, uint16_t address) {
-    cpu->registers.accumulator =
-        cpu->registers.accumulator ^ cpu->memory[address];
+    cpu->registers.accumulator = cpu->registers.accumulator ^ cpu->memory[address];
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
 
 void ExecuteORA(CPU* cpu, uint16_t address) {
-    cpu->registers.accumulator =
-        cpu->registers.accumulator | cpu->memory[address];
+    cpu->registers.accumulator = cpu->registers.accumulator | cpu->memory[address];
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
 
-void ExecuteADC(CPU* cpu, uint16_t address) {}
+void ExecuteADC(CPU* cpu, uint16_t address) {
+    uint8_t old_accumulator = cpu->registers.accumulator;
+    cpu->registers.accumulator = cpu->registers.accumulator +
+                                 cpu->memory[address] +
+                                 cpu->registers.status.carry;
 
-void ExecuteCMP(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.carry = (cpu->registers.accumulator < old_accumulator + cpu->registers.status.carry);
+    cpu->registers.status.overflow = ((cpu->registers.accumulator >> 7) != (old_accumulator >> 7));
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
 
-void ExecuteCPX(CPU* cpu, uint16_t address) {}
+void ExecuteCMP(CPU* cpu, uint16_t address) {
+    uint8_t result = cpu->registers.accumulator - cpu->memory[address];
 
-void ExecuteCPY(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.carry = (result < cpu->registers.accumulator);
+    cpu->registers.status.negative = (result >> 7) & 1;
+    cpu->registers.status.zero = !(result);
+}
 
-void ExecuteSBC(CPU* cpu, uint16_t address) {}
+void ExecuteCPX(CPU* cpu, uint16_t address) {
+    uint8_t result = cpu->registers.x - cpu->memory[address];
+
+    /* flags */
+    cpu->registers.status.carry = (result < cpu->registers.x);
+    cpu->registers.status.negative = (result >> 7) & 1;
+    cpu->registers.status.zero = !(result);
+}
+
+void ExecuteCPY(CPU* cpu, uint16_t address) {
+    uint8_t result = cpu->registers.y - cpu->memory[address];
+
+    /* flags */
+    cpu->registers.status.carry = (result < cpu->registers.y);
+    cpu->registers.status.negative = (result >> 7) & 1;
+    cpu->registers.status.zero = !(result);
+}
+
+void ExecuteSBC(CPU* cpu, uint16_t address) {
+    uint8_t old_accumulator = cpu->registers.accumulator;
+    cpu->registers.accumulator = cpu->registers.accumulator -
+                                 cpu->memory[address] -
+                                 ~(cpu->registers.status.carry);
+
+    /* flags */
+    // not sure on this one
+    cpu->registers.status.carry = ((cpu->registers.accumulator >> 7) == (old_accumulator >> 7));
+    // again
+    cpu->registers.status.overflow = ((cpu->registers.accumulator >> 7) != (old_accumulator >> 7));
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
 
 void ExecuteDEC(CPU* cpu, uint16_t address) {}
 
