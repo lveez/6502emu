@@ -121,6 +121,7 @@ typedef enum {
     YZeroPage,
     XZeroPageIndirect,
     ZeroPageIndirectY,
+    Relative,
 } AddressingMode;
 
 typedef struct Instruction {
@@ -129,5 +130,21 @@ typedef struct Instruction {
 } Instruction;
 
 /* functions */
+
+/* get the addresses*/
+
+uint16_t GetImplied(uint8_t* memory);
+uint16_t GetAccumulator(uint8_t* memory);
+uint16_t GetImmediate(uint8_t* memory);
+uint16_t GetAbsolute(uint8_t* memory);
+uint16_t GetXAbsolute(uint8_t* memory);
+uint16_t GetYAbsolute(uint8_t* memory);
+uint16_t GetAbsoluteIndirect(uint8_t* memory);
+uint16_t GetZeroPage(uint8_t* memory);
+uint16_t GetXZeroPage(uint8_t* memory);
+uint16_t GetYZeroPage(uint8_t* memory);
+uint16_t GetXZeroPageIndirect(uint8_t* memory);
+uint16_t GetZeroPageIndirectY(uint8_t* memory);
+uint16_t GetRelative(uint8_t* memory);
 
 // #endif /* 6502_H */
