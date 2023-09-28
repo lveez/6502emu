@@ -1,10 +1,30 @@
 #include "6502.h"
 
+/* utility functions */
+
 inline uint8_t CheckPageCross(uint16_t base, uint8_t offset) {
     if (((base + offset) & 0xff) < (base & 0xff))
         return 1;
     return 0;
 }
+
+inline uint8_t StatusToInt(Status* status) {
+    return (status->negative << 7) | (status->overflow << 6) |
+           (status->brk << 4) | (status->decimal << 3) |
+           (status->interrupt << 2) | (status->zero << 1) | (status->carry);
+}
+
+void StatusFromInt(Status* status, uint8_t status_int) {
+    status->negative = (status_int >> 7) & 1;
+    status->overflow = (status_int >> 6) & 1;
+    status->brk = (status_int >> 4) & 1;
+    status->decimal = (status_int >> 3) & 1;
+    status->interrupt = (status_int >> 2) & 1;
+    status->zero = (status_int >> 1) & 1;
+    status->carry = status_int & 1;
+}
+
+/* addressing */
 
 uint16_t GetImplied(CPU* cpu, Instruction* instruction) {
     return 0;
@@ -77,6 +97,8 @@ uint16_t GetRelative(CPU* cpu, Instruction* instruction) {
     uint16_t offset = *(uint8_t*)(cpu->memory + instruction->base_address + 1);
     return cpu->registers.program_counter + offset;
 }
+
+/* executing */
 
 void ExecuteLDA(CPU* cpu, uint16_t address) {
     cpu->registers.accumulator = cpu->memory[address];
@@ -174,13 +196,33 @@ void ExecuteTYA(CPU* cpu, uint16_t address) {
     cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
 
-void ExecutePHA(CPU* cpu, uint16_t address) {}
+void ExecutePHA(CPU* cpu, uint16_t address) {
+    cpu->memory[0x1ff - cpu->registers.stack_pointer] =
+        cpu->registers.accumulator;
+    cpu->registers.stack_pointer -= 1;
+}
 
-void ExecutePHP(CPU* cpu, uint16_t address) {}
+void ExecutePHP(CPU* cpu, uint16_t address) {
+    cpu->memory[0x100 + cpu->registers.stack_pointer] =
+        StatusToInt(&cpu->registers.status);
+    cpu->registers.stack_pointer -= 1;
+}
 
-void ExecutePLA(CPU* cpu, uint16_t address) {}
+void ExecutePLA(CPU* cpu, uint16_t address) {
+    cpu->registers.stack_pointer += 1;
+    cpu->registers.accumulator =
+        cpu->memory[0x100 + cpu->registers.stack_pointer];
 
-void ExecutePLP(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
+
+void ExecutePLP(CPU* cpu, uint16_t address) {
+    cpu->registers.stack_pointer += 1;
+    StatusFromInt(&cpu->registers.status,
+                  cpu->memory[0x100 + cpu->registers.stack_pointer]);
+}
 
 void ExecuteASL(CPU* cpu, uint16_t address) {}
 
