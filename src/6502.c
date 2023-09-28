@@ -126,17 +126,53 @@ void ExecuteSTY(CPU* cpu, uint16_t address) {
     cpu->registers.status.zero = !(cpu->registers.y);
 }
 
-void ExecuteTAX(CPU* cpu, uint16_t address) {}
+void ExecuteTAX(CPU* cpu, uint16_t address) {
+    cpu->registers.x = cpu->registers.accumulator;
 
-void ExecuteTAY(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.x);
+}
 
-void ExecuteTSX(CPU* cpu, uint16_t address) {}
+void ExecuteTAY(CPU* cpu, uint16_t address) {
+    cpu->registers.y = cpu->registers.accumulator;
 
-void ExecuteTXA(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.y);
+}
 
-void ExecuteTXS(CPU* cpu, uint16_t address) {}
+void ExecuteTSX(CPU* cpu, uint16_t address) {
+    cpu->registers.x = cpu->registers.stack_pointer;
 
-void ExecuteTYA(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.x);
+}
+
+void ExecuteTXA(CPU* cpu, uint16_t address) {
+    cpu->registers.accumulator = cpu->registers.x;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
+
+void ExecuteTXS(CPU* cpu, uint16_t address) {
+    cpu->registers.stack_pointer = cpu->registers.x;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.stack_pointer >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.stack_pointer);
+}
+
+void ExecuteTYA(CPU* cpu, uint16_t address) {
+    cpu->registers.accumulator = cpu->registers.y;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
 
 void ExecutePHA(CPU* cpu, uint16_t address) {}
 
