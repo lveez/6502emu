@@ -224,13 +224,98 @@ void ExecutePLP(CPU* cpu, uint16_t address) {
                   cpu->memory[0x100 + cpu->registers.stack_pointer]);
 }
 
-void ExecuteASL(CPU* cpu, uint16_t address) {}
+void ExecuteASL(CPU* cpu, uint16_t address, Instruction* instruction) {
+    if (instruction->addressing_mode == Accumulator) {
+        cpu->registers.status.carry = (cpu->registers.accumulator >> 7) & 1;
+        cpu->registers.accumulator = cpu->registers.accumulator << 1;
 
-void ExecuteLSR(CPU* cpu, uint16_t address) {}
+        /* flags */
+        cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+        cpu->registers.status.zero = !(cpu->registers.accumulator);
 
-void ExecuteROL(CPU* cpu, uint16_t address) {}
+        return;
+    }
 
-void ExecuteROR(CPU* cpu, uint16_t address) {}
+    uint8_t value = cpu->memory[address];
+    cpu->registers.status.carry = (value >> 7) & 1;
+    cpu->memory[address] = value << 1;
+
+    /* flags */
+    cpu->registers.status.negative = (value >> 7) & 1;
+    cpu->registers.status.zero = !(value);
+}
+
+void ExecuteLSR(CPU* cpu, uint16_t address, Instruction* instruction) {
+    if (instruction->addressing_mode == Accumulator) {
+        cpu->registers.status.carry = (cpu->registers.accumulator) & 1;
+        cpu->registers.accumulator = cpu->registers.accumulator >> 1;
+        cpu->registers.accumulator &= 0b01111111;
+
+        /* flags */
+        cpu->registers.status.negative = 0;
+        cpu->registers.status.zero = !(cpu->registers.accumulator);
+
+        return;
+    }
+
+    uint8_t value = cpu->memory[address];
+    cpu->registers.status.carry = value & 1;
+    cpu->memory[address] = value >> 1;
+
+    /* flags */
+    cpu->registers.status.negative = 0;
+    cpu->registers.status.zero = !(value);
+}
+
+void ExecuteROL(CPU* cpu, uint16_t address, Instruction* instruction) {
+    if (instruction->addressing_mode == Accumulator) {
+        uint8_t old_carry = cpu->registers.status.carry;
+        cpu->registers.status.carry = (cpu->registers.accumulator >> 7) & 1;
+        cpu->registers.accumulator = cpu->registers.accumulator << 1;
+        cpu->registers.accumulator |= old_carry;
+
+        /* flags */
+        cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+        cpu->registers.status.zero = !(cpu->registers.accumulator);
+
+        return;
+    }
+
+    uint8_t old_carry = cpu->registers.status.carry;
+    uint8_t value = cpu->memory[address];
+    cpu->registers.status.carry = (value >> 7) & 1;
+    cpu->memory[address] = value << 1;
+    cpu->memory[address] |= old_carry;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->memory[address]);
+}
+
+void ExecuteROR(CPU* cpu, uint16_t address, Instruction* instruction) {
+    if (instruction->addressing_mode == Accumulator) {
+        uint8_t old_carry = cpu->registers.status.carry;
+        cpu->registers.status.carry = (cpu->registers.accumulator) & 1;
+        cpu->registers.accumulator = cpu->registers.accumulator >> 1;
+        cpu->registers.accumulator |= (old_carry << 7);
+
+        /* flags */
+        cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+        cpu->registers.status.zero = !(cpu->registers.accumulator);
+
+        return;
+    }
+
+    uint8_t old_carry = cpu->registers.status.carry;
+    uint8_t value = cpu->memory[address];
+    cpu->registers.status.carry = value & 1;
+    cpu->memory[address] = value >> 1;
+    cpu->memory[address] |= (old_carry << 7);
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->memory[address]);
+}
 
 void ExecuteAND(CPU* cpu, uint16_t address) {}
 
