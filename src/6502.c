@@ -396,17 +396,53 @@ void ExecuteSBC(CPU* cpu, uint16_t address) {
     cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
 
-void ExecuteDEC(CPU* cpu, uint16_t address) {}
+void ExecuteDEC(CPU* cpu, uint16_t address) {
+    cpu->memory[address] -= 1;
 
-void ExecuteDEX(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->memory[address]);
+}
 
-void ExecuteDEY(CPU* cpu, uint16_t address) {}
+void ExecuteDEX(CPU* cpu, uint16_t address) {
+    cpu->registers.x -= 1;
 
-void ExecuteINC(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.x);
+}
 
-void ExecuteINX(CPU* cpu, uint16_t address) {}
+void ExecuteDEY(CPU* cpu, uint16_t address) {
+    cpu->registers.y -= 1;
 
-void ExecuteINY(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.y);
+}
+
+void ExecuteINC(CPU* cpu, uint16_t address) {
+    cpu->memory[address] += 1;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->memory[address]);
+}
+
+void ExecuteINX(CPU* cpu, uint16_t address) {
+    cpu->registers.x += 1;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.x);
+}
+
+void ExecuteINY(CPU* cpu, uint16_t address) {
+    cpu->registers.y += 1;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.y);
+}
 
 void ExecuteBRK(CPU* cpu, uint16_t address) {}
 
