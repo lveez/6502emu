@@ -317,13 +317,33 @@ void ExecuteROR(CPU* cpu, uint16_t address, Instruction* instruction) {
     cpu->registers.status.zero = !(cpu->memory[address]);
 }
 
-void ExecuteAND(CPU* cpu, uint16_t address) {}
+void ExecuteAND(CPU* cpu, uint16_t address) {
+    cpu->registers.accumulator =
+        cpu->registers.accumulator & cpu->memory[address];
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
 
-void ExecuteBIT(CPU* cpu, uint16_t address) {}
+void ExecuteBIT(CPU* cpu, uint16_t address) {
+    cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
+    cpu->registers.status.overflow = (cpu->memory[address] >> 6) & 1;
+    cpu->registers.status.zero =
+        !(cpu->registers.accumulator & cpu->memory[address]);
+}
 
-void ExecuteEOR(CPU* cpu, uint16_t address) {}
+void ExecuteEOR(CPU* cpu, uint16_t address) {
+    cpu->registers.accumulator =
+        cpu->registers.accumulator ^ cpu->memory[address];
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
 
-void ExecuteORA(CPU* cpu, uint16_t address) {}
+void ExecuteORA(CPU* cpu, uint16_t address) {
+    cpu->registers.accumulator =
+        cpu->registers.accumulator | cpu->memory[address];
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
 
 void ExecuteADC(CPU* cpu, uint16_t address) {}
 
