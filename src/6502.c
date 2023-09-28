@@ -102,11 +102,29 @@ void ExecuteLDY(CPU* cpu, uint16_t address) {
     cpu->registers.status.zero = !(cpu->registers.y);
 }
 
-void ExecuteSTA(CPU* cpu, uint16_t address) {}
+void ExecuteSTA(CPU* cpu, uint16_t address) {
+    cpu->memory[address] = cpu->registers.accumulator;
 
-void ExecuteSTX(CPU* cpu, uint16_t address) {}
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.accumulator);
+}
 
-void ExecuteSTY(CPU* cpu, uint16_t address) {}
+void ExecuteSTX(CPU* cpu, uint16_t address) {
+    cpu->memory[address] = cpu->registers.x;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.x);
+}
+
+void ExecuteSTY(CPU* cpu, uint16_t address) {
+    cpu->memory[address] = cpu->registers.y;
+
+    /* flags */
+    cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
+    cpu->registers.status.zero = !(cpu->registers.y);
+}
 
 void ExecuteTAX(CPU* cpu, uint16_t address) {}
 
