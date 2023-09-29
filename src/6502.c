@@ -444,15 +444,38 @@ void ExecuteINY(CPU* cpu, uint16_t address) {
     cpu->registers.status.zero = !(cpu->registers.y);
 }
 
-void ExecuteBRK(CPU* cpu, uint16_t address) {}
+void ExecuteBRK(CPU* cpu, uint16_t address) {
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->registers.program_counter + 2;
+    cpu->registers.stack_pointer -= 1;
 
-void ExecuteJMP(CPU* cpu, uint16_t address) {}
+    cpu->registers.program_counter = *(uint16_t*)(cpu->memory + 0xfffe);
+    cpu->registers.status.interrupt = 1;
+    cpu->registers.status.brk = 1;
+}
 
-void ExecuteJSR(CPU* cpu, uint16_t address) {}
+void ExecuteJMP(CPU* cpu, uint16_t address) {
+    cpu->registers.program_counter = address;
+}
 
-void ExecuteRTI(CPU* cpu, uint16_t address) {}
+void ExecuteJSR(CPU* cpu, uint16_t address) {
+    // not sure - will have to implement inc pc in addressing and should therefore save instruction base address?
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->registers.program_counter + 2;
+    cpu->registers.stack_pointer -= 1;
 
-void ExecuteRTS(CPU* cpu, uint16_t address) {}
+    cpu->registers.program_counter = address;
+}
+
+void ExecuteRTI(CPU* cpu, uint16_t address) {
+    cpu->registers.stack_pointer += 1;
+    StatusFromInt(&cpu->registers.status, cpu->memory[0x100 + cpu->registers.stack_pointer]);
+    cpu->registers.stack_pointer += 1;
+    cpu->registers.program_counter = cpu->memory[0x100 + cpu->registers.stack_pointer];
+}
+
+void ExecuteRTS(CPU* cpu, uint16_t address) {
+    cpu->registers.stack_pointer += 1;
+    cpu->registers.program_counter = cpu->memory[0x100 + cpu->registers.stack_pointer] + 1;
+}
 
 void ExecuteBCC(CPU* cpu, uint16_t address) {}
 
