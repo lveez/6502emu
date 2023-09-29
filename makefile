@@ -1,4 +1,4 @@
 SRCFILES := $(wildcard src/*.c)
 
 all:
-	gcc $(SRCFILES) -o./bin/6502
+	gcc $(SRCFILES) -o./bin/65022

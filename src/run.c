@@ -1,6 +1,5 @@
 #include "run.h"
 
-#include "stdio.h"
 #include "string.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -470,59 +469,65 @@ uint8_t LoadROM(CPU* cpu, const char* filename, uint16_t base_address) {
     return 1;
 }
 
-void Step(CPU* cpu, uint8_t print_debug) {
+void Step(CPU* cpu, uint8_t print_debug, FILE* debug_file) {
     cpu->instruction = instruction_table[cpu->memory[cpu->registers.program_counter]];
     cpu->instruction.base_address = cpu->registers.program_counter;
 
+    if (ftell(debug_file) > 100000)
+        fseek(debug_file, 0, SEEK_SET);
+
     if (print_debug) {
-        printf("PC: 0x%04x, Ins: %s, AM: %s\n", cpu->registers.program_counter, instruction_name[cpu->instruction.operation], addressing_mode_name[cpu->instruction.addressing_mode]);
+        fprintf(debug_file, "PC: 0x%04x, Ins: %s, AM: %s\n", cpu->registers.program_counter, instruction_name[cpu->instruction.operation], addressing_mode_name[cpu->instruction.addressing_mode]);
     }
 
     uint16_t effective_address = (*AddressingFunctions[cpu->instruction.addressing_mode])(cpu);
 
     if (print_debug) {
-        printf("---\n");
-        printf("Address: 0x%04x, Value: 0x%02x\n", effective_address, cpu->memory[effective_address]);
+        fprintf(debug_file, "---\n");
+        fprintf(debug_file, "Address: 0x%04x, Value: 0x%02x\n", effective_address, cpu->memory[effective_address]);
     }
 
     (*InstructionFunctions[cpu->instruction.operation])(cpu, effective_address);
 
     if (print_debug) {
-        printf("---\n");
-        printf("N | V | B | D | I | Z | C\n");
-        printf("%d | %d | %d | %d | %d | %d | %d\n",
-               cpu->registers.status.negative,
-               cpu->registers.status.overflow,
-               cpu->registers.status.brk,
-               cpu->registers.status.decimal,
-               cpu->registers.status.interrupt,
-               cpu->registers.status.zero,
-               cpu->registers.status.carry);
-        printf("---\n");
-        printf("X | Y | A | S\n");
-        printf("%x | %x | %x | %x\n", cpu->registers.x, cpu->registers.y, cpu->registers.accumulator, cpu->registers.stack_pointer);
-        printf("\n\n");
+        fprintf(debug_file, "---\n");
+        fprintf(debug_file, "N | V | B | D | I | Z | C\n");
+        fprintf(debug_file, "%d | %d | %d | %d | %d | %d | %d\n",
+                cpu->registers.status.negative,
+                cpu->registers.status.overflow,
+                cpu->registers.status.brk,
+                cpu->registers.status.decimal,
+                cpu->registers.status.interrupt,
+                cpu->registers.status.zero,
+                cpu->registers.status.carry);
+        fprintf(debug_file, "---\n");
+        fprintf(debug_file, "X | Y | A | S\n");
+        fprintf(debug_file, "%x | %x | %x | %x\n", cpu->registers.x, cpu->registers.y, cpu->registers.accumulator, cpu->registers.stack_pointer);
+        fprintf(debug_file, "\n\n");
     }
 }
 
 void Steps(CPU* cpu, uint32_t num_steps, uint32_t clock_speed, uint8_t print_debug) {
     for (uint64_t i = 0; i < num_steps; i++) {
-        Step(cpu, print_debug);
+        Step(cpu, print_debug, NULL);
         Sleep(100);
     }
 }
 
 void Run(CPU* cpu, uint32_t clock_speed) {
     uint16_t old_program_counter = 0;
+    FILE* debug_file = fopen("debug.txt", "w");
     while (1) {
         old_program_counter = cpu->registers.program_counter;
-        Step(cpu, 1);
+
+        Step(cpu, 1, debug_file);
         if (cpu->registers.program_counter == old_program_counter) {
             /* dump stack */
-            printf("---\n");
+            fprintf(debug_file, "STACK---\n");
             for (int i = cpu->registers.stack_pointer + 1; i < 0x100; i++) {
-                printf("%02x: %02x\n", i, cpu->memory[0x100 + i]);
+                fprintf(debug_file, "%02x: %02x\n", i, cpu->memory[0x100 + i]);
             }
+            fprintf(debug_file, "0x%04x\n", cpu->registers.program_counter);
             return;
         }
     }

@@ -78,26 +78,28 @@ uint16_t GetZeroPage(CPU* cpu) {
 
 uint16_t GetXZeroPage(CPU* cpu) {
     cpu->registers.program_counter += 2;
-    uint16_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
-    return (address + cpu->registers.x) % 0xff;
+    uint8_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
+    address += cpu->registers.x;
+    return address;
 }
 
 uint16_t GetYZeroPage(CPU* cpu) {
     cpu->registers.program_counter += 2;
-    uint16_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
-    return (address + cpu->registers.y) % 0xff;
+    uint8_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
+    address += cpu->registers.y;
+    return address;
 }
 
 uint16_t GetXZeroPageIndirect(CPU* cpu) {
     cpu->registers.program_counter += 2;
-    uint16_t pointer = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
+    uint8_t pointer = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     pointer += cpu->registers.x;
     return *(uint16_t*)(cpu->memory + pointer);
 }
 
 uint16_t GetZeroPageIndirectY(CPU* cpu) {
     cpu->registers.program_counter += 2;
-    uint16_t pointer = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
+    uint8_t pointer = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     uint16_t address = *(uint16_t*)(cpu->memory + pointer);
 
     cpu->instruction.page_cross = CheckPageCross(address, cpu->registers.y);
@@ -236,7 +238,8 @@ void ExecuteASL(CPU* cpu, uint16_t address) {
 
     uint8_t value = cpu->memory[address];
     cpu->registers.status.carry = (value >> 7) & 1;
-    cpu->memory[address] = value << 1;
+    value = value << 1;
+    cpu->memory[address] = value;
 
     /* flags */
     cpu->registers.status.negative = (value >> 7) & 1;
@@ -258,7 +261,8 @@ void ExecuteLSR(CPU* cpu, uint16_t address) {
 
     uint8_t value = cpu->memory[address];
     cpu->registers.status.carry = value & 1;
-    cpu->memory[address] = value >> 1;
+    value = value >> 1;
+    cpu->memory[address] = value;
 
     /* flags */
     cpu->registers.status.negative = 0;
@@ -345,9 +349,11 @@ void ExecuteADC(CPU* cpu, uint16_t address) {
                                  cpu->memory[address] +
                                  cpu->registers.status.carry;
 
+    int16_t overflow_check = (int8_t)old_accumulator + (int8_t)cpu->memory[address] + cpu->registers.status.carry;
+    uint16_t carry_check = old_accumulator + cpu->memory[address] + cpu->registers.status.carry;
     /* flags */
-    cpu->registers.status.carry = (cpu->registers.accumulator < old_accumulator + cpu->registers.status.carry);
-    cpu->registers.status.overflow = ((cpu->registers.accumulator >> 7) != (old_accumulator >> 7));
+    cpu->registers.status.carry = (carry_check > 0xff);
+    cpu->registers.status.overflow = (!((old_accumulator ^ cpu->memory[address]) & 0x80) && ((old_accumulator ^ cpu->registers.accumulator) & 0x80));
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
@@ -383,13 +389,13 @@ void ExecuteSBC(CPU* cpu, uint16_t address) {
     uint8_t old_accumulator = cpu->registers.accumulator;
     cpu->registers.accumulator = cpu->registers.accumulator -
                                  cpu->memory[address] -
-                                 ~(cpu->registers.status.carry);
+                                 !(cpu->registers.status.carry);
 
+    int8_t result = (int8_t)cpu->registers.accumulator;
+    uint16_t carry_check = old_accumulator - cpu->memory[address] - !(cpu->registers.status.carry);
     /* flags */
-    // not sure on this one
-    cpu->registers.status.carry = ((cpu->registers.accumulator >> 7) == (old_accumulator >> 7));
-    // again
-    cpu->registers.status.overflow = ((cpu->registers.accumulator >> 7) != (old_accumulator >> 7));
+    cpu->registers.status.carry = (carry_check < 0x100);
+    cpu->registers.status.overflow = (!((old_accumulator ^ ~(cpu->memory[address])) & 0x80) && ((old_accumulator ^ cpu->registers.accumulator) & 0x80));
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
