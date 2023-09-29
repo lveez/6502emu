@@ -24,11 +24,6 @@ typedef struct Registers {
     Status status;
 } Registers;
 
-typedef struct CPU {
-    Registers registers;
-    uint8_t memory[0xffff];
-} CPU;
-
 typedef enum {
     /* load*/
     LDA,
@@ -131,23 +126,29 @@ typedef struct Instruction {
     uint8_t page_cross;
 } Instruction;
 
+typedef struct CPU {
+    Registers registers;
+    uint8_t memory[0xffff];
+    Instruction instruction;
+} CPU;
+
 /* functions */
 
 /* get the addresses*/
 
-uint16_t GetImplied(CPU* cpu, Instruction* instruction);
-uint16_t GetAccumulator(CPU* cpu, Instruction* instruction);
-uint16_t GetImmediate(CPU* cpu, Instruction* instruction);
-uint16_t GetAbsolute(CPU* cpu, Instruction* instruction);
-uint16_t GetXAbsolute(CPU* cpu, Instruction* instruction);
-uint16_t GetYAbsolute(CPU* cpu, Instruction* instruction);
-uint16_t GetAbsoluteIndirect(CPU* cpu, Instruction* instruction);
-uint16_t GetZeroPage(CPU* cpu, Instruction* instruction);
-uint16_t GetXZeroPage(CPU* cpu, Instruction* instruction);
-uint16_t GetYZeroPage(CPU* cpu, Instruction* instruction);
-uint16_t GetXZeroPageIndirect(CPU* cpu, Instruction* instruction);
-uint16_t GetZeroPageIndirectY(CPU* cpu, Instruction* instruction);
-uint16_t GetRelative(CPU* cpu, Instruction* instruction);
+uint16_t GetImplied(CPU* cpu);
+uint16_t GetAccumulator(CPU* cpu);
+uint16_t GetImmediate(CPU* cpu);
+uint16_t GetAbsolute(CPU* cpu);
+uint16_t GetXAbsolute(CPU* cpu);
+uint16_t GetYAbsolute(CPU* cpu);
+uint16_t GetAbsoluteIndirect(CPU* cpu);
+uint16_t GetZeroPage(CPU* cpu);
+uint16_t GetXZeroPage(CPU* cpu);
+uint16_t GetYZeroPage(CPU* cpu);
+uint16_t GetXZeroPageIndirect(CPU* cpu);
+uint16_t GetZeroPageIndirectY(CPU* cpu);
+uint16_t GetRelative(CPU* cpu);
 
 /* instructions */
 void ExecuteLDA(CPU* cpu, uint16_t address);
