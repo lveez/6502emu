@@ -93,7 +93,7 @@ uint16_t GetZeroPageIndirectY(CPU* cpu, Instruction* instruction) {
 }
 
 uint16_t GetRelative(CPU* cpu, Instruction* instruction) {
-    // make sure pc is set right
+    // make sure pc is set right -> should be next instruction i think
     uint16_t offset = *(uint8_t*)(cpu->memory + instruction->base_address + 1);
     return cpu->registers.program_counter + offset;
 }
@@ -477,21 +477,45 @@ void ExecuteRTS(CPU* cpu, uint16_t address) {
     cpu->registers.program_counter = cpu->memory[0x100 + cpu->registers.stack_pointer] + 1;
 }
 
-void ExecuteBCC(CPU* cpu, uint16_t address) {}
+void ExecuteBCC(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.carry == 0)
+        cpu->registers.program_counter = address;
+}
 
-void ExecuteBCS(CPU* cpu, uint16_t address) {}
+void ExecuteBCS(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.carry == 1)
+        cpu->registers.program_counter = address;
+}
 
-void ExecuteBEQ(CPU* cpu, uint16_t address) {}
+void ExecuteBEQ(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.zero == 1)
+        cpu->registers.program_counter = address;
+}
 
-void ExecuteBMI(CPU* cpu, uint16_t address) {}
+void ExecuteBMI(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.negative == 1)
+        cpu->registers.program_counter = address;
+}
 
-void ExecuteBNE(CPU* cpu, uint16_t address) {}
+void ExecuteBNE(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.zero == 0)
+        cpu->registers.program_counter = address;
+}
 
-void ExecuteBPL(CPU* cpu, uint16_t address) {}
+void ExecuteBPL(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.negative == 0)
+        cpu->registers.program_counter = address;
+}
 
-void ExecuteBVC(CPU* cpu, uint16_t address) {}
+void ExecuteBVC(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.overflow == 0)
+        cpu->registers.program_counter = address;
+}
 
-void ExecuteBVS(CPU* cpu, uint16_t address) {}
+void ExecuteBVS(CPU* cpu, uint16_t address) {
+    if (cpu->registers.status.overflow == 1)
+        cpu->registers.program_counter = address;
+}
 
 void ExecuteCLC(CPU* cpu, uint16_t address) {}
 
