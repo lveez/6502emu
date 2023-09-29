@@ -2,8 +2,11 @@
 
 #include "stdio.h"
 #include "string.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
-Instruction InstructionTable[0x100] = {
+/* instruction look up table */
+Instruction instruction_table[0x100] = {
     {BRK, Implied, 0, 0},            // 00
     {ORA, XZeroPageIndirect, 0, 0},  // 01
     {0, 0, 0, 0},                    // 02
@@ -262,10 +265,158 @@ Instruction InstructionTable[0x100] = {
     {0, 0, 0, 0},                    // ff
 };
 
-void DecodeInstruction(CPU* cpu) {
-    switch (cpu->memory[cpu->registers.program_counter]) {
-    }
-}
+/* function pointers to addressing mode functions */
+uint16_t (*AddressingFunctions[13])(CPU* cpu) = {
+    GetImplied,
+    GetAccumulator,
+    GetImmediate,
+    GetAbsolute,
+    GetXAbsolute,
+    GetYAbsolute,
+    GetAbsoluteIndirect,
+    GetZeroPage,
+    GetXZeroPage,
+    GetYZeroPage,
+    GetXZeroPageIndirect,
+    GetZeroPageIndirectY,
+    GetRelative,
+};
+
+/* function pointers to execute instructions */
+void (*InstructionFunctions[56])(CPU* cpu, uint16_t address) = {
+    ExecuteLDA,
+    ExecuteLDX,
+    ExecuteLDY,
+    ExecuteSTA,
+    ExecuteSTX,
+    ExecuteSTY,
+    ExecuteTAX,
+    ExecuteTAY,
+    ExecuteTSX,
+    ExecuteTXA,
+    ExecuteTXS,
+    ExecuteTYA,
+    ExecutePHA,
+    ExecutePHP,
+    ExecutePLA,
+    ExecutePLP,
+    ExecuteASL,
+    ExecuteLSR,
+    ExecuteROL,
+    ExecuteROR,
+    ExecuteAND,
+    ExecuteBIT,
+    ExecuteEOR,
+    ExecuteORA,
+    ExecuteADC,
+    ExecuteCMP,
+    ExecuteCPX,
+    ExecuteCPY,
+    ExecuteSBC,
+    ExecuteDEC,
+    ExecuteDEX,
+    ExecuteDEY,
+    ExecuteINC,
+    ExecuteINX,
+    ExecuteINY,
+    ExecuteBRK,
+    ExecuteJMP,
+    ExecuteJSR,
+    ExecuteRTI,
+    ExecuteRTS,
+    ExecuteBCC,
+    ExecuteBCS,
+    ExecuteBEQ,
+    ExecuteBMI,
+    ExecuteBNE,
+    ExecuteBPL,
+    ExecuteBVC,
+    ExecuteBVS,
+    ExecuteCLC,
+    ExecuteCLD,
+    ExecuteCLI,
+    ExecuteCLV,
+    ExecuteSEC,
+    ExecuteSED,
+    ExecuteSEI,
+    ExecuteNOP,
+};
+
+/* addressing mode string look up table */
+const char* addressing_mode_name[13] = {
+    "Implied",
+    "Accumulator",
+    "Immediate",
+    "Absolute",
+    "XAbsolute",
+    "YAbsolute",
+    "AbsoluteIndirect",
+    "ZeroPage",
+    "XZeroPage",
+    "YZeroPage",
+    "XZeroPageIndirect",
+    "ZeroPageIndirectY",
+    "Relative",
+};
+
+const char* instruction_name[56] = {
+    "LDA",
+    "LDX",
+    "LDY",
+    "STA",
+    "STX",
+    "STY",
+    "TAX",
+    "TAY",
+    "TSX",
+    "TXA",
+    "TXS",
+    "TYA",
+    "PHA",
+    "PHP",
+    "PLA",
+    "PLP",
+    "ASL",
+    "LSR",
+    "ROL",
+    "ROR",
+    "AND",
+    "BIT",
+    "EOR",
+    "ORA",
+    "ADC",
+    "CMP",
+    "CPX",
+    "CPY",
+    "SBC",
+    "DEC",
+    "DEX",
+    "DEY",
+    "INC",
+    "INX",
+    "INY",
+    "BRK",
+    "JMP",
+    "JSR",
+    "RTI",
+    "RTS",
+    "BCC",
+    "BCS",
+    "BEQ",
+    "BMI",
+    "BNE",
+    "BPL",
+    "BVC",
+    "BVS",
+    "CLC",
+    "CLD",
+    "CLI",
+    "CLV",
+    "SEC",
+    "SED",
+    "SEI",
+    "NOP",
+};
 
 void Init(CPU* cpu) {
     memset(cpu->memory, 0, 0xffff);
@@ -320,5 +471,57 @@ uint8_t LoadROM(CPU* cpu, const char* filename, uint16_t base_address) {
 }
 
 void Step(CPU* cpu, uint8_t print_debug) {
-    DecodeInstruction(cpu);
+    cpu->instruction = instruction_table[cpu->memory[cpu->registers.program_counter]];
+    cpu->instruction.base_address = cpu->registers.program_counter;
+
+    if (print_debug) {
+        printf("PC: 0x%04x, Ins: %s, AM: %s\n", cpu->registers.program_counter, instruction_name[cpu->instruction.operation], addressing_mode_name[cpu->instruction.addressing_mode]);
+        printf("---\n");
+        printf("N | V | B | D | I | Z | C\n");
+        printf("%d | %d | %d | %d | %d | %d | %d\n",
+               cpu->registers.status.negative,
+               cpu->registers.status.overflow,
+               cpu->registers.status.brk,
+               cpu->registers.status.decimal,
+               cpu->registers.status.interrupt,
+               cpu->registers.status.zero,
+               cpu->registers.status.carry);
+    }
+
+    uint16_t effective_address = (*AddressingFunctions[cpu->instruction.addressing_mode])(cpu);
+
+    if (print_debug) {
+        printf("---\n");
+        printf("Address: 0x%04x\n", effective_address);
+    }
+
+    (*InstructionFunctions[cpu->instruction.operation])(cpu, effective_address);
+
+    if (print_debug) {
+        printf("---\n");
+        printf("N | V | B | D | I | Z | C\n");
+        printf("%d | %d | %d | %d | %d | %d | %d\n",
+               cpu->registers.status.negative,
+               cpu->registers.status.overflow,
+               cpu->registers.status.brk,
+               cpu->registers.status.decimal,
+               cpu->registers.status.interrupt,
+               cpu->registers.status.zero,
+               cpu->registers.status.carry);
+        printf("\n\n");
+    }
+}
+
+void Steps(CPU* cpu, uint32_t num_steps, uint32_t clock_speed, uint8_t print_debug) {
+    for (uint64_t i = 0; i < num_steps; i++) {
+        Step(cpu, print_debug);
+        Sleep(100);
+    }
+}
+
+void Run(CPU* cpu, uint32_t clock_speed) {
+    while (1) {
+        Step(cpu, 1);
+        Sleep(300);
+    }
 }

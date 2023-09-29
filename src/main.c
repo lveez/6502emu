@@ -5,5 +5,6 @@ int main(int argc, char** argv) {
     Init(&cpu);
     if (!LoadROM(&cpu, "bin/6502_functional_test.bin", 0))
         return -1;
+    Run(&cpu, 0);
     return 0;
 }
