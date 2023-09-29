@@ -1,4 +1,4 @@
-#include "6502.h"
+#include "structure.h"
 
 /* utility functions */
 
