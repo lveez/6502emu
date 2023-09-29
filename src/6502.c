@@ -459,7 +459,9 @@ void ExecuteINY(CPU* cpu, uint16_t address) {
 }
 
 void ExecuteBRK(CPU* cpu, uint16_t address) {
-    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->registers.program_counter + 2;
+    // need to increment program counter one more as brk has 1 extra byte for debug
+    cpu->registers.program_counter += 1;
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->instruction.base_address + 2;
     cpu->registers.stack_pointer -= 1;
     cpu->registers.status.interrupt = 1;
     // not sure if interrupt is actually set?
@@ -474,8 +476,7 @@ void ExecuteJMP(CPU* cpu, uint16_t address) {
 }
 
 void ExecuteJSR(CPU* cpu, uint16_t address) {
-    // not sure - will have to implement inc pc in addressing and should therefore save instruction base address?
-    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->registers.program_counter + 2;
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->instruction.base_address + 2;
     cpu->registers.stack_pointer -= 1;
 
     cpu->registers.program_counter = address;
