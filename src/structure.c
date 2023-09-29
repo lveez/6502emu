@@ -8,9 +8,9 @@ uint8_t CheckPageCross(uint16_t base, uint8_t offset) {
     return 0;
 }
 
-uint8_t StatusToInt(Status* status) {
+uint8_t StatusToInt(Status* status, uint8_t brk) {
     return (status->negative << 7) | (status->overflow << 6) |
-           (1 << 5) | (1 << 4) | (status->decimal << 3) |
+           (1 << 5) | (brk << 4) | (status->decimal << 3) |
            (status->interrupt << 2) | (status->zero << 1) | (status->carry);
 }
 
@@ -85,7 +85,7 @@ uint16_t GetXZeroPage(CPU* cpu) {
 uint16_t GetYZeroPage(CPU* cpu) {
     cpu->registers.program_counter += 2;
     uint16_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
-    return (address + cpu->registers.x) % 0xff;
+    return (address + cpu->registers.y) % 0xff;
 }
 
 uint16_t GetXZeroPageIndirect(CPU* cpu) {
@@ -107,7 +107,7 @@ uint16_t GetZeroPageIndirectY(CPU* cpu) {
 uint16_t GetRelative(CPU* cpu) {
     cpu->registers.program_counter += 2;
     // not sure offset can maybe be negative?
-    uint16_t offset = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
+    int8_t offset = *(int8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     return cpu->instruction.base_address + 2 + offset;
 }
 
@@ -139,26 +139,14 @@ void ExecuteLDY(CPU* cpu, uint16_t address) {
 
 void ExecuteSTA(CPU* cpu, uint16_t address) {
     cpu->memory[address] = cpu->registers.accumulator;
-
-    /* flags */
-    cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
-    cpu->registers.status.zero = !(cpu->registers.accumulator);
 }
 
 void ExecuteSTX(CPU* cpu, uint16_t address) {
     cpu->memory[address] = cpu->registers.x;
-
-    /* flags */
-    cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
-    cpu->registers.status.zero = !(cpu->registers.x);
 }
 
 void ExecuteSTY(CPU* cpu, uint16_t address) {
     cpu->memory[address] = cpu->registers.y;
-
-    /* flags */
-    cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
-    cpu->registers.status.zero = !(cpu->registers.y);
 }
 
 void ExecuteTAX(CPU* cpu, uint16_t address) {
@@ -195,10 +183,6 @@ void ExecuteTXA(CPU* cpu, uint16_t address) {
 
 void ExecuteTXS(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer = cpu->registers.x;
-
-    /* flags */
-    cpu->registers.status.negative = (cpu->registers.stack_pointer >> 7) & 1;
-    cpu->registers.status.zero = !(cpu->registers.stack_pointer);
 }
 
 void ExecuteTYA(CPU* cpu, uint16_t address) {
@@ -210,7 +194,7 @@ void ExecuteTYA(CPU* cpu, uint16_t address) {
 }
 
 void ExecutePHA(CPU* cpu, uint16_t address) {
-    cpu->memory[0x1ff - cpu->registers.stack_pointer] =
+    cpu->memory[0x100 + cpu->registers.stack_pointer] =
         cpu->registers.accumulator;
     cpu->registers.stack_pointer -= 1;
 }
@@ -218,7 +202,7 @@ void ExecutePHA(CPU* cpu, uint16_t address) {
 void ExecutePHP(CPU* cpu, uint16_t address) {
     // not sure if brk flag is set? -> done in status to int function
     cpu->memory[0x100 + cpu->registers.stack_pointer] =
-        StatusToInt(&cpu->registers.status);
+        StatusToInt(&cpu->registers.status, 1);
     cpu->registers.stack_pointer -= 1;
 }
 
@@ -372,7 +356,7 @@ void ExecuteCMP(CPU* cpu, uint16_t address) {
     uint8_t result = cpu->registers.accumulator - cpu->memory[address];
 
     /* flags */
-    cpu->registers.status.carry = (result < cpu->registers.accumulator);
+    cpu->registers.status.carry = (cpu->memory[address] <= cpu->registers.accumulator);
     cpu->registers.status.negative = (result >> 7) & 1;
     cpu->registers.status.zero = !(result);
 }
@@ -381,7 +365,7 @@ void ExecuteCPX(CPU* cpu, uint16_t address) {
     uint8_t result = cpu->registers.x - cpu->memory[address];
 
     /* flags */
-    cpu->registers.status.carry = (result < cpu->registers.x);
+    cpu->registers.status.carry = (cpu->memory[address] <= cpu->registers.x);
     cpu->registers.status.negative = (result >> 7) & 1;
     cpu->registers.status.zero = !(result);
 }
@@ -390,7 +374,7 @@ void ExecuteCPY(CPU* cpu, uint16_t address) {
     uint8_t result = cpu->registers.y - cpu->memory[address];
 
     /* flags */
-    cpu->registers.status.carry = (result < cpu->registers.y);
+    cpu->registers.status.carry = (cpu->memory[address] <= cpu->registers.y);
     cpu->registers.status.negative = (result >> 7) & 1;
     cpu->registers.status.zero = !(result);
 }
@@ -461,12 +445,16 @@ void ExecuteINY(CPU* cpu, uint16_t address) {
 void ExecuteBRK(CPU* cpu, uint16_t address) {
     // need to increment program counter one more as brk has 1 extra byte for debug
     cpu->registers.program_counter += 1;
-    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->instruction.base_address + 2;
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = (cpu->instruction.base_address + 2) >> 8 & 0xff;
     cpu->registers.stack_pointer -= 1;
-    cpu->registers.status.interrupt = 1;
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = (cpu->instruction.base_address + 2) & 0xff;
+    cpu->registers.stack_pointer -= 1;
+    // cpu->registers.status.interrupt = 1;
     // not sure if interrupt is actually set?
-    cpu->memory[0x100 + cpu->registers.stack_pointer] = StatusToInt(&cpu->registers.status);
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = StatusToInt(&cpu->registers.status, 1);
     cpu->registers.stack_pointer -= 1;
+
+    cpu->registers.status.interrupt = 1;
 
     cpu->registers.program_counter = *(uint16_t*)(cpu->memory + 0xfffe);
 }
@@ -476,7 +464,9 @@ void ExecuteJMP(CPU* cpu, uint16_t address) {
 }
 
 void ExecuteJSR(CPU* cpu, uint16_t address) {
-    cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->instruction.base_address + 2;
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = (cpu->instruction.base_address + 2) >> 8 & 0xff;
+    cpu->registers.stack_pointer -= 1;
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = (cpu->instruction.base_address + 2) & 0xff;
     cpu->registers.stack_pointer -= 1;
 
     cpu->registers.program_counter = address;
@@ -486,12 +476,19 @@ void ExecuteRTI(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer += 1;
     StatusFromInt(&cpu->registers.status, cpu->memory[0x100 + cpu->registers.stack_pointer]);
     cpu->registers.stack_pointer += 1;
-    cpu->registers.program_counter = cpu->memory[0x100 + cpu->registers.stack_pointer];
+    uint16_t lo = cpu->memory[0x100 + cpu->registers.stack_pointer];
+    cpu->registers.stack_pointer += 1;
+    uint16_t hi = cpu->memory[0x100 + cpu->registers.stack_pointer];
+    cpu->registers.program_counter = (hi << 8) | lo;
 }
 
 void ExecuteRTS(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer += 1;
-    cpu->registers.program_counter = cpu->memory[0x100 + cpu->registers.stack_pointer] + 1;
+    uint16_t lo = cpu->memory[0x100 + cpu->registers.stack_pointer];
+    cpu->registers.stack_pointer += 1;
+    uint16_t hi = cpu->memory[0x100 + cpu->registers.stack_pointer];
+    cpu->registers.program_counter = (hi << 8) | lo;
+    cpu->registers.program_counter += 1;
 }
 
 void ExecuteBCC(CPU* cpu, uint16_t address) {

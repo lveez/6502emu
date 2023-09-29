@@ -442,7 +442,7 @@ uint8_t LoadROM(CPU* cpu, const char* filename, uint16_t base_address) {
 
     if (file == NULL) {
         perror("LoadROM: Error opening ROM file.\n");
-        return 1;
+        return 0;
     }
 
     /* get file size */
@@ -452,13 +452,13 @@ uint8_t LoadROM(CPU* cpu, const char* filename, uint16_t base_address) {
 
     if (base_address + size > 0x10000) {
         printf("LoadROM: ROM file (%d bytes) is too large for the base address selected.\n", size);
-        return 1;
+        return 0;
     }
 
     size_t bytes_read = fread(cpu->memory + base_address, size, 1, file);
     if (bytes_read != 1) {
         perror("LoadROM: Error reading from ROM file,\n");
-        return 1;
+        return 0;
     }
 
     printf("LoadROM: %s (%d bytes) successfully loaded at address 0x%04x.\n", filename, size, base_address);
@@ -467,7 +467,7 @@ uint8_t LoadROM(CPU* cpu, const char* filename, uint16_t base_address) {
     cpu->registers.program_counter = *(uint16_t*)(cpu->memory + 0xfffc);
     printf("CPU: Program counter initialized to 0x%04x\n", cpu->registers.program_counter);
 
-    return 0;
+    return 1;
 }
 
 void Step(CPU* cpu, uint8_t print_debug) {
@@ -476,23 +476,13 @@ void Step(CPU* cpu, uint8_t print_debug) {
 
     if (print_debug) {
         printf("PC: 0x%04x, Ins: %s, AM: %s\n", cpu->registers.program_counter, instruction_name[cpu->instruction.operation], addressing_mode_name[cpu->instruction.addressing_mode]);
-        printf("---\n");
-        printf("N | V | B | D | I | Z | C\n");
-        printf("%d | %d | %d | %d | %d | %d | %d\n",
-               cpu->registers.status.negative,
-               cpu->registers.status.overflow,
-               cpu->registers.status.brk,
-               cpu->registers.status.decimal,
-               cpu->registers.status.interrupt,
-               cpu->registers.status.zero,
-               cpu->registers.status.carry);
     }
 
     uint16_t effective_address = (*AddressingFunctions[cpu->instruction.addressing_mode])(cpu);
 
     if (print_debug) {
         printf("---\n");
-        printf("Address: 0x%04x\n", effective_address);
+        printf("Address: 0x%04x, Value: 0x%02x\n", effective_address, cpu->memory[effective_address]);
     }
 
     (*InstructionFunctions[cpu->instruction.operation])(cpu, effective_address);
@@ -508,6 +498,9 @@ void Step(CPU* cpu, uint8_t print_debug) {
                cpu->registers.status.interrupt,
                cpu->registers.status.zero,
                cpu->registers.status.carry);
+        printf("---\n");
+        printf("X | Y | A | S\n");
+        printf("%x | %x | %x | %x\n", cpu->registers.x, cpu->registers.y, cpu->registers.accumulator, cpu->registers.stack_pointer);
         printf("\n\n");
     }
 }
@@ -520,8 +513,17 @@ void Steps(CPU* cpu, uint32_t num_steps, uint32_t clock_speed, uint8_t print_deb
 }
 
 void Run(CPU* cpu, uint32_t clock_speed) {
+    uint16_t old_program_counter = 0;
     while (1) {
+        old_program_counter = cpu->registers.program_counter;
         Step(cpu, 1);
-        Sleep(300);
+        if (cpu->registers.program_counter == old_program_counter) {
+            /* dump stack */
+            printf("---\n");
+            for (int i = cpu->registers.stack_pointer + 1; i < 0x100; i++) {
+                printf("%02x: %02x\n", i, cpu->memory[0x100 + i]);
+            }
+            return;
+        }
     }
 }
