@@ -517,18 +517,34 @@ void ExecuteBVS(CPU* cpu, uint16_t address) {
         cpu->registers.program_counter = address;
 }
 
-void ExecuteCLC(CPU* cpu, uint16_t address) {}
+void ExecuteCLC(CPU* cpu, uint16_t address) {
+    cpu->registers.status.carry = 0;
+}
 
-void ExecuteCLD(CPU* cpu, uint16_t address) {}
+void ExecuteCLD(CPU* cpu, uint16_t address) {
+    cpu->registers.status.decimal = 0;
+}
 
-void ExecuteCLI(CPU* cpu, uint16_t address) {}
+void ExecuteCLI(CPU* cpu, uint16_t address) {
+    cpu->registers.status.interrupt = 0;
+}
 
-void ExecuteCLV(CPU* cpu, uint16_t address) {}
+void ExecuteCLV(CPU* cpu, uint16_t address) {
+    cpu->registers.status.overflow = 0;
+}
 
-void ExecuteSEC(CPU* cpu, uint16_t address) {}
+void ExecuteSEC(CPU* cpu, uint16_t address) {
+    cpu->registers.status.carry = 1;
+}
 
-void ExecuteSED(CPU* cpu, uint16_t address) {}
+void ExecuteSED(CPU* cpu, uint16_t address) {
+    cpu->registers.status.decimal = 1;
+}
 
-void ExecuteSEI(CPU* cpu, uint16_t address) {}
+void ExecuteSEI(CPU* cpu, uint16_t address) {
+    cpu->registers.status.interrupt = 1;
+}
 
-void ExecuteNOP(CPU* cpu, uint16_t address) {}
+void ExecuteNOP(CPU* cpu, uint16_t address) {
+    return;
+}
