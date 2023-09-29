@@ -128,7 +128,7 @@ typedef struct Instruction {
 
 typedef struct CPU {
     Registers registers;
-    uint8_t memory[0xffff];
+    uint8_t memory[0x10000];
     Instruction instruction;
 } CPU;
 

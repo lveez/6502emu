@@ -2,13 +2,13 @@
 
 /* utility functions */
 
-inline uint8_t CheckPageCross(uint16_t base, uint8_t offset) {
+uint8_t CheckPageCross(uint16_t base, uint8_t offset) {
     if (((base + offset) & 0xff) < (base & 0xff))
         return 1;
     return 0;
 }
 
-inline uint8_t StatusToInt(Status* status) {
+uint8_t StatusToInt(Status* status) {
     return (status->negative << 7) | (status->overflow << 6) |
            (1 << 5) | (1 << 4) | (status->decimal << 3) |
            (status->interrupt << 2) | (status->zero << 1) | (status->carry);
