@@ -10,14 +10,14 @@ inline uint8_t CheckPageCross(uint16_t base, uint8_t offset) {
 
 inline uint8_t StatusToInt(Status* status) {
     return (status->negative << 7) | (status->overflow << 6) |
-           (status->brk << 4) | (status->decimal << 3) |
+           (1 << 5) | (1 << 4) | (status->decimal << 3) |
            (status->interrupt << 2) | (status->zero << 1) | (status->carry);
 }
 
 void StatusFromInt(Status* status, uint8_t status_int) {
     status->negative = (status_int >> 7) & 1;
     status->overflow = (status_int >> 6) & 1;
-    status->brk = (status_int >> 4) & 1;
+    status->brk = 0;
     status->decimal = (status_int >> 3) & 1;
     status->interrupt = (status_int >> 2) & 1;
     status->zero = (status_int >> 1) & 1;
@@ -27,22 +27,27 @@ void StatusFromInt(Status* status, uint8_t status_int) {
 /* addressing */
 
 uint16_t GetImplied(CPU* cpu) {
+    cpu->registers.program_counter += 1;
     return 0;
 }
 
 uint16_t GetAccumulator(CPU* cpu) {
+    cpu->registers.program_counter += 1;
     return 0;
 }
 
 uint16_t GetImmediate(CPU* cpu) {
+    cpu->registers.program_counter += 2;
     return cpu->instruction.base_address + 1;
 }
 
 uint16_t GetAbsolute(CPU* cpu) {  // not sure
+    cpu->registers.program_counter += 3;
     return *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
 }
 
 uint16_t GetXAbsolute(CPU* cpu) {
+    cpu->registers.program_counter += 3;
     uint16_t address =
         *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
 
@@ -51,6 +56,7 @@ uint16_t GetXAbsolute(CPU* cpu) {
 }
 
 uint16_t GetYAbsolute(CPU* cpu) {
+    cpu->registers.program_counter += 3;
     uint16_t address =
         *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
 
@@ -59,32 +65,38 @@ uint16_t GetYAbsolute(CPU* cpu) {
 }
 
 uint16_t GetAbsoluteIndirect(CPU* cpu) {
+    cpu->registers.program_counter += 3;
     uint16_t pointer =
         *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
     return *(uint16_t*)(cpu->memory + pointer);
 }
 
 uint16_t GetZeroPage(CPU* cpu) {
+    cpu->registers.program_counter += 2;
     return *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
 }
 
 uint16_t GetXZeroPage(CPU* cpu) {
+    cpu->registers.program_counter += 2;
     uint16_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     return (address + cpu->registers.x) % 0xff;
 }
 
 uint16_t GetYZeroPage(CPU* cpu) {
+    cpu->registers.program_counter += 2;
     uint16_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     return (address + cpu->registers.x) % 0xff;
 }
 
 uint16_t GetXZeroPageIndirect(CPU* cpu) {
+    cpu->registers.program_counter += 2;
     uint16_t pointer = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     pointer += cpu->registers.x;
     return *(uint16_t*)(cpu->memory + pointer);
 }
 
 uint16_t GetZeroPageIndirectY(CPU* cpu) {
+    cpu->registers.program_counter += 2;
     uint16_t pointer = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     uint16_t address = *(uint16_t*)(cpu->memory + pointer);
 
@@ -93,7 +105,8 @@ uint16_t GetZeroPageIndirectY(CPU* cpu) {
 }
 
 uint16_t GetRelative(CPU* cpu) {
-    // offset can maybe be negative?
+    cpu->registers.program_counter += 2;
+    // not sure offset can maybe be negative?
     uint16_t offset = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     return cpu->instruction.base_address + 2 + offset;
 }
@@ -203,6 +216,7 @@ void ExecutePHA(CPU* cpu, uint16_t address) {
 }
 
 void ExecutePHP(CPU* cpu, uint16_t address) {
+    // not sure if brk flag is set? -> done in status to int function
     cpu->memory[0x100 + cpu->registers.stack_pointer] =
         StatusToInt(&cpu->registers.status);
     cpu->registers.stack_pointer -= 1;
@@ -447,10 +461,12 @@ void ExecuteINY(CPU* cpu, uint16_t address) {
 void ExecuteBRK(CPU* cpu, uint16_t address) {
     cpu->memory[0x100 + cpu->registers.stack_pointer] = cpu->registers.program_counter + 2;
     cpu->registers.stack_pointer -= 1;
+    cpu->registers.status.interrupt = 1;
+    // not sure if interrupt is actually set?
+    cpu->memory[0x100 + cpu->registers.stack_pointer] = StatusToInt(&cpu->registers.status);
+    cpu->registers.stack_pointer -= 1;
 
     cpu->registers.program_counter = *(uint16_t*)(cpu->memory + 0xfffe);
-    cpu->registers.status.interrupt = 1;
-    cpu->registers.status.brk = 1;
 }
 
 void ExecuteJMP(CPU* cpu, uint16_t address) {
