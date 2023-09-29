@@ -1,5 +1,5 @@
-// #ifndef 6502_H
-// #define 6502_H
+#ifndef STRUCTURE_H
+#define STRUCTURE_H
 
 #include <stdint.h>
 
@@ -208,4 +208,4 @@ void ExecuteSED(CPU* cpu, uint16_t address);
 void ExecuteSEI(CPU* cpu, uint16_t address);
 void ExecuteNOP(CPU* cpu, uint16_t address);
 
-// #endif /* 6502_H */
+#endif /* STRUCTURE_H*/
