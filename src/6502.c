@@ -93,9 +93,9 @@ uint16_t GetZeroPageIndirectY(CPU* cpu, Instruction* instruction) {
 }
 
 uint16_t GetRelative(CPU* cpu, Instruction* instruction) {
-    // make sure pc is set right -> should be next instruction i think
+    // offset can maybe be negative?
     uint16_t offset = *(uint8_t*)(cpu->memory + instruction->base_address + 1);
-    return cpu->registers.program_counter + offset;
+    return instruction->base_address + 2 + offset;
 }
 
 /* executing */
