@@ -130,7 +130,7 @@ typedef struct CPU {
     Registers registers;
     uint8_t memory[0x10000];
     Instruction instruction;
-    uint16_t clock_cycles;
+    uint64_t clock_cycles;
 } CPU;
 
 /* functions */
