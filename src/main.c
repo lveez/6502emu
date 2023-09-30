@@ -7,6 +7,6 @@ int main(int argc, char** argv) {
         return -1;
     cpu.registers.program_counter = 0x400;
     FILE* debug_file = fopen("debug.txt", "w");
-    Run(&cpu, 0, 1, debug_file);
+    Run(&cpu, 1, debug_file);
     return 0;
 }

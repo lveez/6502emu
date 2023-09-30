@@ -470,6 +470,7 @@ uint8_t LoadROM(CPU* cpu, const char* filename, uint16_t base_address) {
 }
 
 void Step(CPU* cpu, uint8_t print_debug, FILE* debug_file) {
+    uint64_t old_cycles = cpu->clock_cycles;
     cpu->instruction = instruction_table[cpu->memory[cpu->registers.program_counter]];
     cpu->clock_cycles += 1;
     cpu->instruction.base_address = cpu->registers.program_counter;
@@ -504,18 +505,19 @@ void Step(CPU* cpu, uint8_t print_debug, FILE* debug_file) {
         fprintf(debug_file, "---\n");
         fprintf(debug_file, "X | Y | A | S\n");
         fprintf(debug_file, "%x | %x | %x | %x\n", cpu->registers.x, cpu->registers.y, cpu->registers.accumulator, cpu->registers.stack_pointer);
+        fprintf(debug_file, "cycles: %d (total: %d)\n", cpu->clock_cycles - old_cycles, cpu->clock_cycles);
         fprintf(debug_file, "\n\n");
     }
 }
 
-void Steps(CPU* cpu, uint32_t num_steps, uint32_t clock_speed, uint8_t print_debug, FILE* debug_file) {
+void Steps(CPU* cpu, uint32_t num_steps, uint8_t print_debug, FILE* debug_file) {
     for (uint64_t i = 0; i < num_steps; i++) {
         Step(cpu, print_debug, debug_file);
         Sleep(100);
     }
 }
 
-void Run(CPU* cpu, uint32_t clock_speed, uint8_t print_debug, FILE* debug_file) {
+void Run(CPU* cpu, uint8_t print_debug, FILE* debug_file) {
     uint16_t old_program_counter = 0;
     while (1) {
         old_program_counter = cpu->registers.program_counter;
