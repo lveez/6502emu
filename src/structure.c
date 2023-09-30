@@ -351,9 +351,15 @@ void ExecuteADC(CPU* cpu, uint16_t address) {
     uint8_t old_accumulator = cpu->registers.accumulator;
 
     if (cpu->registers.status.decimal) {
-        cpu->registers.accumulator = ConvertBCD(cpu->registers.accumulator) +
-                                     ConvertBCD(cpu->memory[address]) +
-                                     cpu->registers.status.carry;
+        /* lower digit */
+        uint8_t lower = (cpu->registers.accumulator & 0x0f) + (cpu->memory[address] & 0x0f) + cpu->registers.status.carry;
+        /* 0xa => 0x10 */
+        if (lower > 0x9)
+            lower += 0x6;
+        uint16_t result = (cpu->registers.accumulator & 0xf0) + (cpu->memory[address] & 0xf0) + (lower > 0xf ? 0x10 : 0) + (lower & 0x0f);
+        if (result > 0x9f)
+            result += 0x60;
+        cpu->registers.accumulator = result & 0xff;
     } else {
         cpu->registers.accumulator = cpu->registers.accumulator +
                                      cpu->memory[address] +
@@ -402,9 +408,18 @@ void ExecuteSBC(CPU* cpu, uint16_t address) {
     uint8_t old_accumulator = cpu->registers.accumulator;
 
     if (cpu->registers.status.decimal) {
-        cpu->registers.accumulator = ConvertBCD(cpu->registers.accumulator) -
-                                     ConvertBCD(cpu->memory[address]) -
-                                     !(cpu->registers.status.carry);
+        int8_t lower = (cpu->registers.accumulator & 0x0f) - (cpu->memory[address] & 0x0f) - !(cpu->registers.status.carry);
+        if (lower < 0) {
+            lower = ((lower - 6) & 0x0f) - 0x10;
+        }
+
+        int16_t result = (cpu->registers.accumulator & 0xf0) - (cpu->memory[address] & 0xf0) + lower;
+        if (result < 0) {
+            result -= 0x60;
+        }
+
+        cpu->registers.accumulator = result;
+
     } else {
         cpu->registers.accumulator = cpu->registers.accumulator -
                                      cpu->memory[address] -
