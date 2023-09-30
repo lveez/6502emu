@@ -24,6 +24,10 @@ void StatusFromInt(Status* status, uint8_t status_int) {
     status->carry = status_int & 1;
 }
 
+uint8_t ConvertBCD(uint8_t byte) {
+    return ((byte >> 4) * 10) + (byte & 0xf);
+}
+
 /* addressing */
 
 uint16_t GetImplied(CPU* cpu) {
@@ -345,14 +349,23 @@ void ExecuteORA(CPU* cpu, uint16_t address) {
 
 void ExecuteADC(CPU* cpu, uint16_t address) {
     uint8_t old_accumulator = cpu->registers.accumulator;
-    cpu->registers.accumulator = cpu->registers.accumulator +
-                                 cpu->memory[address] +
-                                 cpu->registers.status.carry;
 
-    int16_t overflow_check = (int8_t)old_accumulator + (int8_t)cpu->memory[address] + cpu->registers.status.carry;
+    if (cpu->registers.status.decimal) {
+        cpu->registers.accumulator = ConvertBCD(cpu->registers.accumulator) +
+                                     ConvertBCD(cpu->memory[address]) +
+                                     cpu->registers.status.carry;
+    } else {
+        cpu->registers.accumulator = cpu->registers.accumulator +
+                                     cpu->memory[address] +
+                                     cpu->registers.status.carry;
+    }
+
     uint16_t carry_check = old_accumulator + cpu->memory[address] + cpu->registers.status.carry;
     /* flags */
-    cpu->registers.status.carry = (carry_check > 0xff);
+    if (cpu->registers.status.decimal)
+        cpu->registers.status.carry = (carry_check > 0x99);
+    else
+        cpu->registers.status.carry = (carry_check > 0xff);
     cpu->registers.status.overflow = (!((old_accumulator ^ cpu->memory[address]) & 0x80) && ((old_accumulator ^ cpu->registers.accumulator) & 0x80));
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
@@ -387,11 +400,17 @@ void ExecuteCPY(CPU* cpu, uint16_t address) {
 
 void ExecuteSBC(CPU* cpu, uint16_t address) {
     uint8_t old_accumulator = cpu->registers.accumulator;
-    cpu->registers.accumulator = cpu->registers.accumulator -
-                                 cpu->memory[address] -
-                                 !(cpu->registers.status.carry);
 
-    int8_t result = (int8_t)cpu->registers.accumulator;
+    if (cpu->registers.status.decimal) {
+        cpu->registers.accumulator = ConvertBCD(cpu->registers.accumulator) -
+                                     ConvertBCD(cpu->memory[address]) -
+                                     !(cpu->registers.status.carry);
+    } else {
+        cpu->registers.accumulator = cpu->registers.accumulator -
+                                     cpu->memory[address] -
+                                     !(cpu->registers.status.carry);
+    }
+
     uint16_t carry_check = old_accumulator - cpu->memory[address] - !(cpu->registers.status.carry);
     /* flags */
     cpu->registers.status.carry = (carry_check < 0x100);
