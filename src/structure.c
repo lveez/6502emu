@@ -3,7 +3,7 @@
 /* utility functions */
 
 uint8_t CheckPageCross(uint16_t base, uint8_t offset) {
-    if (((base + offset) & 0xff) < (base & 0xff))
+    if (((base + offset) & 0xff00) != (base & 0xff00))
         return 1;
     return 0;
 }
@@ -22,10 +22,6 @@ void StatusFromInt(Status* status, uint8_t status_int) {
     status->interrupt = (status_int >> 2) & 1;
     status->zero = (status_int >> 1) & 1;
     status->carry = status_int & 1;
-}
-
-uint8_t ConvertBCD(uint8_t byte) {
-    return ((byte >> 4) * 10) + (byte & 0xf);
 }
 
 /* addressing */
@@ -47,6 +43,7 @@ uint16_t GetImmediate(CPU* cpu) {
 
 uint16_t GetAbsolute(CPU* cpu) {  // not sure
     cpu->registers.program_counter += 3;
+    cpu->clock_cycles += 2;
     return *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
 }
 
@@ -56,6 +53,12 @@ uint16_t GetXAbsolute(CPU* cpu) {
         *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
 
     cpu->instruction.page_cross = CheckPageCross(address, cpu->registers.x);
+
+    if (cpu->instruction.page_cross)
+        cpu->clock_cycles += 3;
+    else
+        cpu->clock_cycles += 2;
+
     return address + cpu->registers.x;
 }
 
@@ -65,6 +68,12 @@ uint16_t GetYAbsolute(CPU* cpu) {
         *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
 
     cpu->instruction.page_cross = CheckPageCross(address, cpu->registers.y);
+
+    if (cpu->instruction.page_cross)
+        cpu->clock_cycles += 3;
+    else
+        cpu->clock_cycles += 2;
+
     return address + cpu->registers.y;
 }
 
@@ -72,11 +81,13 @@ uint16_t GetAbsoluteIndirect(CPU* cpu) {
     cpu->registers.program_counter += 3;
     uint16_t pointer =
         *(uint16_t*)(cpu->memory + cpu->instruction.base_address + 1);
+    cpu->clock_cycles += 4;
     return *(uint16_t*)(cpu->memory + pointer);
 }
 
 uint16_t GetZeroPage(CPU* cpu) {
     cpu->registers.program_counter += 2;
+    cpu->clock_cycles += 1;
     return *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
 }
 
@@ -84,6 +95,7 @@ uint16_t GetXZeroPage(CPU* cpu) {
     cpu->registers.program_counter += 2;
     uint8_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     address += cpu->registers.x;
+    cpu->clock_cycles += 2;
     return address;
 }
 
@@ -91,6 +103,7 @@ uint16_t GetYZeroPage(CPU* cpu) {
     cpu->registers.program_counter += 2;
     uint8_t address = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     address += cpu->registers.y;
+    cpu->clock_cycles += 2;
     return address;
 }
 
@@ -98,6 +111,7 @@ uint16_t GetXZeroPageIndirect(CPU* cpu) {
     cpu->registers.program_counter += 2;
     uint8_t pointer = *(uint8_t*)(cpu->memory + cpu->instruction.base_address + 1);
     pointer += cpu->registers.x;
+    cpu->clock_cycles += 4;
     return *(uint16_t*)(cpu->memory + pointer);
 }
 
@@ -107,13 +121,26 @@ uint16_t GetZeroPageIndirectY(CPU* cpu) {
     uint16_t address = *(uint16_t*)(cpu->memory + pointer);
 
     cpu->instruction.page_cross = CheckPageCross(address, cpu->registers.y);
+
+    if (cpu->instruction.page_cross)
+        cpu->clock_cycles += 4;
+    else
+        cpu->clock_cycles += 3;
+
     return address + cpu->registers.y;
 }
 
 uint16_t GetRelative(CPU* cpu) {
     cpu->registers.program_counter += 2;
-    // not sure offset can maybe be negative?
     int8_t offset = *(int8_t*)(cpu->memory + cpu->instruction.base_address + 1);
+
+    cpu->instruction.page_cross = CheckPageCross(cpu->instruction.base_address, 2 + offset);
+
+    if (cpu->instruction.page_cross)
+        cpu->clock_cycles += 2;
+    else
+        cpu->clock_cycles += 1;
+
     return cpu->instruction.base_address + 2 + offset;
 }
 
@@ -121,6 +148,8 @@ uint16_t GetRelative(CPU* cpu) {
 
 void ExecuteLDA(CPU* cpu, uint16_t address) {
     cpu->registers.accumulator = cpu->memory[address];
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
@@ -130,6 +159,8 @@ void ExecuteLDA(CPU* cpu, uint16_t address) {
 void ExecuteLDX(CPU* cpu, uint16_t address) {
     cpu->registers.x = cpu->memory[address];
 
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.x);
@@ -138,6 +169,8 @@ void ExecuteLDX(CPU* cpu, uint16_t address) {
 void ExecuteLDY(CPU* cpu, uint16_t address) {
     cpu->registers.y = cpu->memory[address];
 
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.y);
@@ -145,18 +178,26 @@ void ExecuteLDY(CPU* cpu, uint16_t address) {
 
 void ExecuteSTA(CPU* cpu, uint16_t address) {
     cpu->memory[address] = cpu->registers.accumulator;
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteSTX(CPU* cpu, uint16_t address) {
     cpu->memory[address] = cpu->registers.x;
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteSTY(CPU* cpu, uint16_t address) {
     cpu->memory[address] = cpu->registers.y;
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteTAX(CPU* cpu, uint16_t address) {
     cpu->registers.x = cpu->registers.accumulator;
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
@@ -166,6 +207,8 @@ void ExecuteTAX(CPU* cpu, uint16_t address) {
 void ExecuteTAY(CPU* cpu, uint16_t address) {
     cpu->registers.y = cpu->registers.accumulator;
 
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.y);
@@ -173,6 +216,8 @@ void ExecuteTAY(CPU* cpu, uint16_t address) {
 
 void ExecuteTSX(CPU* cpu, uint16_t address) {
     cpu->registers.x = cpu->registers.stack_pointer;
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
@@ -182,6 +227,8 @@ void ExecuteTSX(CPU* cpu, uint16_t address) {
 void ExecuteTXA(CPU* cpu, uint16_t address) {
     cpu->registers.accumulator = cpu->registers.x;
 
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
@@ -189,10 +236,14 @@ void ExecuteTXA(CPU* cpu, uint16_t address) {
 
 void ExecuteTXS(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer = cpu->registers.x;
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteTYA(CPU* cpu, uint16_t address) {
     cpu->registers.accumulator = cpu->registers.y;
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
@@ -203,6 +254,8 @@ void ExecutePHA(CPU* cpu, uint16_t address) {
     cpu->memory[0x100 + cpu->registers.stack_pointer] =
         cpu->registers.accumulator;
     cpu->registers.stack_pointer -= 1;
+
+    cpu->clock_cycles += 2;
 }
 
 void ExecutePHP(CPU* cpu, uint16_t address) {
@@ -210,12 +263,16 @@ void ExecutePHP(CPU* cpu, uint16_t address) {
     cpu->memory[0x100 + cpu->registers.stack_pointer] =
         StatusToInt(&cpu->registers.status, 1);
     cpu->registers.stack_pointer -= 1;
+
+    cpu->clock_cycles += 2;
 }
 
 void ExecutePLA(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer += 1;
     cpu->registers.accumulator =
         cpu->memory[0x100 + cpu->registers.stack_pointer];
+
+    cpu->clock_cycles += 3;
 
     /* flags */
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
@@ -226,12 +283,16 @@ void ExecutePLP(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer += 1;
     StatusFromInt(&cpu->registers.status,
                   cpu->memory[0x100 + cpu->registers.stack_pointer]);
+
+    cpu->clock_cycles += 3;
 }
 
 void ExecuteASL(CPU* cpu, uint16_t address) {
     if (cpu->instruction.addressing_mode == Accumulator) {
         cpu->registers.status.carry = (cpu->registers.accumulator >> 7) & 1;
         cpu->registers.accumulator = cpu->registers.accumulator << 1;
+
+        cpu->clock_cycles += 1;
 
         /* flags */
         cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
@@ -245,6 +306,8 @@ void ExecuteASL(CPU* cpu, uint16_t address) {
     value = value << 1;
     cpu->memory[address] = value;
 
+    cpu->clock_cycles += 3;
+
     /* flags */
     cpu->registers.status.negative = (value >> 7) & 1;
     cpu->registers.status.zero = !(value);
@@ -255,6 +318,8 @@ void ExecuteLSR(CPU* cpu, uint16_t address) {
         cpu->registers.status.carry = (cpu->registers.accumulator) & 1;
         cpu->registers.accumulator = cpu->registers.accumulator >> 1;
         cpu->registers.accumulator &= 0b01111111;
+
+        cpu->clock_cycles += 1;
 
         /* flags */
         cpu->registers.status.negative = 0;
@@ -268,6 +333,8 @@ void ExecuteLSR(CPU* cpu, uint16_t address) {
     value = value >> 1;
     cpu->memory[address] = value;
 
+    cpu->clock_cycles += 3;
+
     /* flags */
     cpu->registers.status.negative = 0;
     cpu->registers.status.zero = !(value);
@@ -279,6 +346,8 @@ void ExecuteROL(CPU* cpu, uint16_t address) {
         cpu->registers.status.carry = (cpu->registers.accumulator >> 7) & 1;
         cpu->registers.accumulator = cpu->registers.accumulator << 1;
         cpu->registers.accumulator |= old_carry;
+
+        cpu->clock_cycles += 1;
 
         /* flags */
         cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
@@ -293,6 +362,8 @@ void ExecuteROL(CPU* cpu, uint16_t address) {
     cpu->memory[address] = value << 1;
     cpu->memory[address] |= old_carry;
 
+    cpu->clock_cycles += 3;
+
     /* flags */
     cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
     cpu->registers.status.zero = !(cpu->memory[address]);
@@ -304,6 +375,8 @@ void ExecuteROR(CPU* cpu, uint16_t address) {
         cpu->registers.status.carry = (cpu->registers.accumulator) & 1;
         cpu->registers.accumulator = cpu->registers.accumulator >> 1;
         cpu->registers.accumulator |= (old_carry << 7);
+
+        cpu->clock_cycles += 1;
 
         /* flags */
         cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
@@ -318,6 +391,8 @@ void ExecuteROR(CPU* cpu, uint16_t address) {
     cpu->memory[address] = value >> 1;
     cpu->memory[address] |= (old_carry << 7);
 
+    cpu->clock_cycles += 3;
+
     /* flags */
     cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
     cpu->registers.status.zero = !(cpu->memory[address]);
@@ -327,24 +402,32 @@ void ExecuteAND(CPU* cpu, uint16_t address) {
     cpu->registers.accumulator = cpu->registers.accumulator & cpu->memory[address];
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteBIT(CPU* cpu, uint16_t address) {
     cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
     cpu->registers.status.overflow = (cpu->memory[address] >> 6) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator & cpu->memory[address]);
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteEOR(CPU* cpu, uint16_t address) {
     cpu->registers.accumulator = cpu->registers.accumulator ^ cpu->memory[address];
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteORA(CPU* cpu, uint16_t address) {
     cpu->registers.accumulator = cpu->registers.accumulator | cpu->memory[address];
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
+
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteADC(CPU* cpu, uint16_t address) {
@@ -366,12 +449,16 @@ void ExecuteADC(CPU* cpu, uint16_t address) {
                                      cpu->registers.status.carry;
     }
 
+    cpu->clock_cycles += 1;
+
     uint16_t carry_check = old_accumulator + cpu->memory[address] + cpu->registers.status.carry;
+
     /* flags */
     if (cpu->registers.status.decimal)
         cpu->registers.status.carry = (carry_check > 0x99);
     else
         cpu->registers.status.carry = (carry_check > 0xff);
+
     cpu->registers.status.overflow = (!((old_accumulator ^ cpu->memory[address]) & 0x80) && ((old_accumulator ^ cpu->registers.accumulator) & 0x80));
     cpu->registers.status.negative = (cpu->registers.accumulator >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.accumulator);
@@ -379,6 +466,8 @@ void ExecuteADC(CPU* cpu, uint16_t address) {
 
 void ExecuteCMP(CPU* cpu, uint16_t address) {
     uint8_t result = cpu->registers.accumulator - cpu->memory[address];
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.carry = (cpu->memory[address] <= cpu->registers.accumulator);
@@ -389,6 +478,8 @@ void ExecuteCMP(CPU* cpu, uint16_t address) {
 void ExecuteCPX(CPU* cpu, uint16_t address) {
     uint8_t result = cpu->registers.x - cpu->memory[address];
 
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.carry = (cpu->memory[address] <= cpu->registers.x);
     cpu->registers.status.negative = (result >> 7) & 1;
@@ -397,6 +488,8 @@ void ExecuteCPX(CPU* cpu, uint16_t address) {
 
 void ExecuteCPY(CPU* cpu, uint16_t address) {
     uint8_t result = cpu->registers.y - cpu->memory[address];
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.carry = (cpu->memory[address] <= cpu->registers.y);
@@ -427,6 +520,9 @@ void ExecuteSBC(CPU* cpu, uint16_t address) {
     }
 
     uint16_t carry_check = old_accumulator - cpu->memory[address] - !(cpu->registers.status.carry);
+
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.carry = (carry_check < 0x100);
     cpu->registers.status.overflow = (!((old_accumulator ^ ~(cpu->memory[address])) & 0x80) && ((old_accumulator ^ cpu->registers.accumulator) & 0x80));
@@ -437,6 +533,8 @@ void ExecuteSBC(CPU* cpu, uint16_t address) {
 void ExecuteDEC(CPU* cpu, uint16_t address) {
     cpu->memory[address] -= 1;
 
+    cpu->clock_cycles += 3;
+
     /* flags */
     cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
     cpu->registers.status.zero = !(cpu->memory[address]);
@@ -444,6 +542,8 @@ void ExecuteDEC(CPU* cpu, uint16_t address) {
 
 void ExecuteDEX(CPU* cpu, uint16_t address) {
     cpu->registers.x -= 1;
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
@@ -453,6 +553,8 @@ void ExecuteDEX(CPU* cpu, uint16_t address) {
 void ExecuteDEY(CPU* cpu, uint16_t address) {
     cpu->registers.y -= 1;
 
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.y);
@@ -460,6 +562,8 @@ void ExecuteDEY(CPU* cpu, uint16_t address) {
 
 void ExecuteINC(CPU* cpu, uint16_t address) {
     cpu->memory[address] += 1;
+
+    cpu->clock_cycles += 3;
 
     /* flags */
     cpu->registers.status.negative = (cpu->memory[address] >> 7) & 1;
@@ -469,6 +573,8 @@ void ExecuteINC(CPU* cpu, uint16_t address) {
 void ExecuteINX(CPU* cpu, uint16_t address) {
     cpu->registers.x += 1;
 
+    cpu->clock_cycles += 1;
+
     /* flags */
     cpu->registers.status.negative = (cpu->registers.x >> 7) & 1;
     cpu->registers.status.zero = !(cpu->registers.x);
@@ -476,6 +582,8 @@ void ExecuteINX(CPU* cpu, uint16_t address) {
 
 void ExecuteINY(CPU* cpu, uint16_t address) {
     cpu->registers.y += 1;
+
+    cpu->clock_cycles += 1;
 
     /* flags */
     cpu->registers.status.negative = (cpu->registers.y >> 7) & 1;
@@ -497,6 +605,8 @@ void ExecuteBRK(CPU* cpu, uint16_t address) {
     cpu->registers.status.interrupt = 1;
 
     cpu->registers.program_counter = *(uint16_t*)(cpu->memory + 0xfffe);
+
+    cpu->clock_cycles += 6;
 }
 
 void ExecuteJMP(CPU* cpu, uint16_t address) {
@@ -510,6 +620,8 @@ void ExecuteJSR(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer -= 1;
 
     cpu->registers.program_counter = address;
+
+    cpu->clock_cycles += 3;
 }
 
 void ExecuteRTI(CPU* cpu, uint16_t address) {
@@ -520,6 +632,8 @@ void ExecuteRTI(CPU* cpu, uint16_t address) {
     cpu->registers.stack_pointer += 1;
     uint16_t hi = cpu->memory[0x100 + cpu->registers.stack_pointer];
     cpu->registers.program_counter = (hi << 8) | lo;
+
+    cpu->clock_cycles += 5;
 }
 
 void ExecuteRTS(CPU* cpu, uint16_t address) {
@@ -529,76 +643,102 @@ void ExecuteRTS(CPU* cpu, uint16_t address) {
     uint16_t hi = cpu->memory[0x100 + cpu->registers.stack_pointer];
     cpu->registers.program_counter = (hi << 8) | lo;
     cpu->registers.program_counter += 1;
+
+    cpu->clock_cycles += 3;
 }
 
 void ExecuteBCC(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.carry == 0)
+    if (cpu->registers.status.carry == 0) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteBCS(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.carry == 1)
+    if (cpu->registers.status.carry == 1) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteBEQ(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.zero == 1)
+    if (cpu->registers.status.zero == 1) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteBMI(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.negative == 1)
+    if (cpu->registers.status.negative == 1) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteBNE(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.zero == 0)
+    if (cpu->registers.status.zero == 0) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteBPL(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.negative == 0)
+    if (cpu->registers.status.negative == 0) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteBVC(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.overflow == 0)
+    if (cpu->registers.status.overflow == 0) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteBVS(CPU* cpu, uint16_t address) {
-    if (cpu->registers.status.overflow == 1)
+    if (cpu->registers.status.overflow == 1) {
+        cpu->clock_cycles += 1;
         cpu->registers.program_counter = address;
+    }
 }
 
 void ExecuteCLC(CPU* cpu, uint16_t address) {
     cpu->registers.status.carry = 0;
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteCLD(CPU* cpu, uint16_t address) {
     cpu->registers.status.decimal = 0;
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteCLI(CPU* cpu, uint16_t address) {
     cpu->registers.status.interrupt = 0;
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteCLV(CPU* cpu, uint16_t address) {
     cpu->registers.status.overflow = 0;
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteSEC(CPU* cpu, uint16_t address) {
     cpu->registers.status.carry = 1;
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteSED(CPU* cpu, uint16_t address) {
     cpu->registers.status.decimal = 1;
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteSEI(CPU* cpu, uint16_t address) {
     cpu->registers.status.interrupt = 1;
+    cpu->clock_cycles += 1;
 }
 
 void ExecuteNOP(CPU* cpu, uint16_t address) {
+    cpu->clock_cycles += 1;
     return;
 }

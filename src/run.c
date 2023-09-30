@@ -471,6 +471,7 @@ uint8_t LoadROM(CPU* cpu, const char* filename, uint16_t base_address) {
 
 void Step(CPU* cpu, uint8_t print_debug, FILE* debug_file) {
     cpu->instruction = instruction_table[cpu->memory[cpu->registers.program_counter]];
+    cpu->clock_cycles += 1;
     cpu->instruction.base_address = cpu->registers.program_counter;
 
     if (ftell(debug_file) > 100000)
