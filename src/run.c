@@ -507,27 +507,30 @@ void Step(CPU* cpu, uint8_t print_debug, FILE* debug_file) {
     }
 }
 
-void Steps(CPU* cpu, uint32_t num_steps, uint32_t clock_speed, uint8_t print_debug) {
+void Steps(CPU* cpu, uint32_t num_steps, uint32_t clock_speed, uint8_t print_debug, FILE* debug_file) {
     for (uint64_t i = 0; i < num_steps; i++) {
-        Step(cpu, print_debug, NULL);
+        Step(cpu, print_debug, debug_file);
         Sleep(100);
     }
 }
 
-void Run(CPU* cpu, uint32_t clock_speed) {
+void Run(CPU* cpu, uint32_t clock_speed, uint8_t print_debug, FILE* debug_file) {
     uint16_t old_program_counter = 0;
-    FILE* debug_file = fopen("debug.txt", "w");
     while (1) {
         old_program_counter = cpu->registers.program_counter;
 
-        Step(cpu, 1, debug_file);
+        Step(cpu, print_debug, debug_file);
+
         if (cpu->registers.program_counter == old_program_counter) {
             /* dump stack */
-            fprintf(debug_file, "STACK---\n");
-            for (int i = cpu->registers.stack_pointer + 1; i < 0x100; i++) {
-                fprintf(debug_file, "%02x: %02x\n", i, cpu->memory[0x100 + i]);
+            if (print_debug) {
+                fprintf(debug_file, "STACK---\n");
+                for (int i = cpu->registers.stack_pointer + 1; i < 0x100; i++) {
+                    fprintf(debug_file, "%02x: %02x\n", i, cpu->memory[0x100 + i]);
+                }
+                fprintf(debug_file, "0x%04x\n", cpu->registers.program_counter);
             }
-            fprintf(debug_file, "0x%04x\n", cpu->registers.program_counter);
+            printf("ERROR: Program counter stuck at 0x%04x.\nExiting...", cpu->registers.program_counter);
             return;
         }
     }
